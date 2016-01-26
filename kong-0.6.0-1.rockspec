@@ -205,6 +205,11 @@ build = {
     ["kong.plugins.acl.api"] = "kong/plugins/acl/api.lua",
     ["kong.plugins.acl.daos"] = "kong/plugins/acl/daos.lua",
 
+    ["kong.plugins.pushpin.handler"] = "kong/plugins/pushpin/handler.lua",
+    ["kong.plugins.pushpin.schema"] = "kong/plugins/pushpin/schema.lua",
+    ["kong.plugins.pushpin.hooks"] = "kong/plugins/pushpin/hooks.lua",
+    ["kong.plugins.pushpin.access"] = "kong/plugins/pushpin/access.lua",
+
     ["kong.api.app"] = "kong/api/app.lua",
     ["kong.api.crud_helpers"] = "kong/api/crud_helpers.lua",
     ["kong.api.route_helpers"] = "kong/api/route_helpers.lua",
