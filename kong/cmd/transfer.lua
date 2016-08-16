@@ -104,35 +104,46 @@ function response_iter(client, path)
   end
 end
 
-local function migrate(from_client, to_client, path)
-  log("starting transfer for %s", path)
+local function do_transfer(client, path, element, index)
+  local res, err = client:request {
+    method = "POST",
+    path = path,
+    body = cjson.encode(element),
+    headers = {
+      ["Content-Type"] = "application/json"
+    }
+  }
+
+  assert(res:read_body())
+
+  if res then
+    if res.status == 409 then
+      log.warn("path %s, conflict for %s", path, element.id)
+    elseif res.status == 201 then
+      log("path %s, transfer done for #%d", path, index)
+    else
+      error("an error occured during the transfer")
+    end
+  end
+end
+
+local function migrate(from_client, to_client, path, relation)
+  log("starting transfer for %s%s", path, relation and "{id}/"..relation.."/" or "")
 
   local i = 0
   for element in response_iter(from_client, path) do
     i = i + 1
-
-    local res, err = to_client:request {
-      method = "POST",
-      path = path,
-      body = cjson.encode(element),
-      headers = {
-        ["Content-Type"] = "application/json"
-      }
-    }
-
-    assert(res:read_body())
-
-    if res then
-      if res.status == 409 then
-        log.warn("path %s, conflict for %s", path, element.id)
-      elseif res.status == 201 then
-        log("path %s, transfer done for #%d", path, i)
-      else
-        error("an error occured during the transfer")
+    if relation then
+      local relation_path = path..element.id.."/"..relation.."/"
+      local t = 0
+      for relation in response_iter(from_client, relation_path) do
+        t = t + 1
+        do_transfer(to_client, relation_path, relation, t)
       end
+    else
+      do_transfer(to_client, path, element, i)
     end
   end
-
 end
 
 local function execute(args)
@@ -156,6 +167,13 @@ local function execute(args)
   migrate(from_client, to_client, "/apis/")
   migrate(from_client, to_client, "/consumers/")
   migrate(from_client, to_client, "/plugins/")
+
+  local consumer_relations = { "acls", "basic-auth", "hmac-auth", "jwt", "key-auth", "oauth2" }
+  for _, v in ipairs(consumer_relations) do
+    migrate(from_client, to_client, "/consumers/", v)
+  end
+
+  migrate(from_client, to_client, "/oauth2_tokens/")
 
   log("done")
 end
