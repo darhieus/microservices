@@ -46,16 +46,20 @@ end
 
 -- Utilities
 
-local function check_versions(from_client, to_client)
+local function check_versions(from, to)
   local version_from, version_to
+  local from_client = http_client(from.address, from.port)
+  local to_client = http_client(to.address, to.port)
 
   local res = assert(from_client:request {method = "GET", path = "/", headers = {}})
   local body = assert(read(res, 200))
   version_from = body.version
-
   local res = assert(to_client:request {method = "GET", path = "/", headers = {}})
   local body = assert(read(res, 200))
   version_to = body.version
+
+  from_client:close()
+  to_client:close()
 
   if version_from and version_to and version_from == version_to then
     return version_from
@@ -64,16 +68,20 @@ local function check_versions(from_client, to_client)
   return nil, "different versions were found on the two clusters"
 end
 
-local function check_plugins(from_client, to_client)
+local function check_plugins(from, to)
   local plugins_from, plugins_to
+  local from_client = http_client(from.address, from.port)
+  local to_client = http_client(to.address, to.port)
 
   local res = assert(from_client:request {method = "GET", path = "/"})
   local body = assert(read(res, 200))
   plugins_from = body.plugins.available_on_server
-
   local res = assert(to_client:request {method = "GET", path = "/"})
   local body = assert(read(res, 200))
   plugins_to = body.plugins.available_on_server
+
+  from_client:close()
+  to_client:close()
 
   if plugins_from and plugins_to and pl_tablex.compare(plugins_from, plugins_to, function(a, b) return a == b end) then
     return pl_tablex.keys(plugins_from)
@@ -82,9 +90,12 @@ local function check_plugins(from_client, to_client)
   return nil, "different plugins available where found on the two clusters"
 end
 
-function response_iter(client, path)
-  local res = assert(client:request {method = "GET", path = path})
+function response_iter(from, path)
+  local from_client = http_client(from.address, from.port)
+  local res = assert(from_client:request {method = "GET", path = path})
   local body = assert(read(res, 200))
+
+  from_client:close()
 
   local i = 0
   local n = table.getn(body.data)
@@ -95,8 +106,11 @@ function response_iter(client, path)
       return body.data[i]
     elseif body.next then
       local parsed_url = url.parse(body.next)
+      local from_client = http_client(from.address, from.port)
       local res = assert(client:request {method = "GET", path = parsed_url.path.."?"..parsed_url.query})
       body = assert(read(res, 200))
+      from_client:close()
+
       i = 1
       n = table.getn(body.data)
       return body.data[i]
@@ -104,8 +118,9 @@ function response_iter(client, path)
   end
 end
 
-local function do_transfer(client, path, element, index)
-  local res, err = client:request {
+local function do_transfer(to, path, element, index)
+  local to_client = http_client(to.address, to.port)
+  local res, err = to_client:request {
     method = "POST",
     path = path,
     body = cjson.encode(element),
@@ -115,33 +130,36 @@ local function do_transfer(client, path, element, index)
   }
 
   assert(res:read_body())
+  to_client:close()
 
   if res then
     if res.status == 409 then
       log.warn("path %s, conflict for %s", path, element.id)
+      return
     elseif res.status == 201 then
       log("path %s, transfer done for #%d", path, index)
-    else
-      error("an error occured during the transfer")
+      return
     end
   end
+
+  error("an error occured during the transfer")
 end
 
-local function migrate(from_client, to_client, path, relation)
+local function migrate(from, to, path, relation)
   log("starting transfer for %s%s", path, relation and "{id}/"..relation.."/" or "")
 
   local i = 0
-  for element in response_iter(from_client, path) do
+  for element in response_iter(from, path) do
     i = i + 1
     if relation then
       local relation_path = path..element.id.."/"..relation.."/"
       local t = 0
-      for relation in response_iter(from_client, relation_path) do
+      for relation in response_iter(from, relation_path) do
         t = t + 1
-        do_transfer(to_client, relation_path, relation, t)
+        do_transfer(to, relation_path, relation, t)
       end
     else
-      do_transfer(to_client, path, element, i)
+      do_transfer(to, path, element, i)
     end
   end
 end
@@ -152,28 +170,25 @@ local function execute(args)
   local to = parse_address(args.to)
   assert(to ~= nil, "Invalid \"to\" address format")
 
-  local from_client = http_client(from.address, from.port)
-  local to_client = http_client(to.address, to.port)
-
   -- Check versions
-  local version = assert(check_versions(from_client, to_client))
+  local version = assert(check_versions(from, to))
   log("initializing transfer across clusters with version: %s", version)
 
   -- Check the plugins installed are the same
-  local plugins = assert(check_plugins(from_client, to_client))
+  local plugins = assert(check_plugins(from, to))
   log("detected %d available plugins", pl_tablex.size(plugins))  
 
   -- Everything looks good, we can start the actual transfer now
-  migrate(from_client, to_client, "/apis/")
-  migrate(from_client, to_client, "/consumers/")
-  migrate(from_client, to_client, "/plugins/")
+  migrate(from, to, "/apis/")
+  migrate(from, to, "/consumers/")
+  migrate(from, to, "/plugins/")
 
   local consumer_relations = { "acls", "basic-auth", "hmac-auth", "jwt", "key-auth", "oauth2" }
   for _, v in ipairs(consumer_relations) do
-    migrate(from_client, to_client, "/consumers/", v)
+    migrate(from, to, "/consumers/", v)
   end
 
-  migrate(from_client, to_client, "/oauth2_tokens/")
+  migrate(from, to, "/oauth2_tokens/")
 
   log("done")
 end
