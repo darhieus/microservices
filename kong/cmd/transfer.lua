@@ -107,7 +107,7 @@ function response_iter(from, path)
     elseif body.next then
       local parsed_url = url.parse(body.next)
       local from_client = http_client(from.address, from.port)
-      local res = assert(client:request {method = "GET", path = parsed_url.path.."?"..parsed_url.query})
+      local res = assert(from_client:request {method = "GET", path = parsed_url.path.."?"..parsed_url.query})
       body = assert(read(res, 200))
       from_client:close()
 
@@ -171,8 +171,8 @@ local function execute(args)
   assert(to ~= nil, "Invalid \"to\" address format")
 
   -- Check versions
-  local version = assert(check_versions(from, to))
-  log("initializing transfer across clusters with version: %s", version)
+  --local version = assert(check_versions(from, to))
+  --log("initializing transfer across clusters with version: %s", version)
 
   -- Check the plugins installed are the same
   local plugins = assert(check_plugins(from, to))
