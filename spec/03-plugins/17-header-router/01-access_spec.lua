@@ -17,13 +17,17 @@ describe("Plugin: header-router (access)", function()
       strip_request_path = true,
       upstream_url = "http://mockbin.com"
     })
+    local api3 = assert(helpers.dao.apis:insert {
+      request_host = "header-router2.com",
+      upstream_url = "http://mockbin.com"
+    })
     
     assert(helpers.dao.plugins:insert {
       name = "header-router",
       api_id = api1.id,
       config = {
         header_name = "x-hello",
-        header_value = "yes",
+        header_values = {"yes", "sup"},
         upstream_url = "http://httpbin.org"
       }
     })
@@ -33,7 +37,17 @@ describe("Plugin: header-router (access)", function()
       api_id = api2.id,
       config = {
         header_name = "x-hello",
-        header_value = "yes",
+        header_values = {"yes", "sup"},
+        upstream_url = "http://httpbin.org"
+      }
+    })
+
+    assert(helpers.dao.plugins:insert {
+      name = "header-router",
+      api_id = api3.id,
+      config = {
+        header_name = "Accept-Language",
+        header_values = {"en", "it-IT", "en-US"},
         upstream_url = "http://httpbin.org"
       }
     })
@@ -59,13 +73,37 @@ describe("Plugin: header-router (access)", function()
       local body = cjson.decode(assert.res_status(200, res))
       assert.equal("http://header-router.com/get", body.url)
     end)
+    it("routes when header matches another value", function()
+      local res = assert(client:send {
+        method = "GET",
+        path = "/get",
+        headers = {
+          ["Host"] = "header-router.com",
+          ["x-hello"] = "sup"
+        }
+      })
+      local body = cjson.decode(assert.res_status(200, res))
+      assert.equal("http://header-router.com/get", body.url)
+    end)
+    it("routes when header matches Accept-Language", function()
+      local res = assert(client:send {
+        method = "GET",
+        path = "/get",
+        headers = {
+          ["Host"] = "header-router2.com",
+          ["Accept-Language"] = "en-US"
+        }
+      })
+      local body = cjson.decode(assert.res_status(200, res))
+      assert.equal("http://header-router2.com/get", body.url)
+    end)
     it("does not route when header does not match", function()
       local res = assert(client:send {
         method = "GET",
         path = "/request",
         headers = {
           ["Host"] = "header-router.com",
-          ["x-hello"] = "yesa"
+          ["x-hello"] = "asdasd"
         }
       })
       local body = cjson.decode(assert.res_status(200, res))
@@ -85,12 +123,23 @@ describe("Plugin: header-router (access)", function()
       local body = cjson.decode(assert.res_status(200, res))
       assert.equal("http://mockbin.com/get", body.url)
     end)
+    it("routes when header matches another value", function()
+      local res = assert(client:send {
+        method = "GET",
+        path = "/test/get",
+        headers = {
+          ["x-hello"] = "sup"
+        }
+      })
+      local body = cjson.decode(assert.res_status(200, res))
+      assert.equal("http://mockbin.com/get", body.url)
+    end)
     it("does not route when header does not match", function()
       local res = assert(client:send {
         method = "GET",
         path = "/test/request",
         headers = {
-          ["x-hello"] = "yesa"
+          ["x-hello"] = "asdasd"
         }
       })
       local body = cjson.decode(assert.res_status(200, res))
