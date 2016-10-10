@@ -14,7 +14,13 @@ function HeaderRouterHandler:access(conf)
 
   for _, v in pairs(conf.rules) do
     local header_value = ngx.req.get_headers()[v.header_name]
-    if header_value and utils.table_contains(v.header_values, pl_stringx.strip(header_value)) then
+
+    local header_values = pl_stringx.strip(v.header_values, ",")
+    if type(header_values) ~= "table" then
+      header_values = { header_values }
+    end
+
+    if header_value and utils.table_contains(header_values, pl_stringx.strip(header_value)) then
       local parsed_url = url.parse(ngx.ctx.upstream_url)
       ngx.ctx.upstream_url = v.upstream_url..parsed_url.path
     end
