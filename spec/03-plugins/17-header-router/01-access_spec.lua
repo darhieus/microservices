@@ -21,14 +21,22 @@ describe("Plugin: header-router (access)", function()
       request_host = "header-router2.com",
       upstream_url = "http://mockbin.com"
     })
-    
+    local api4 = assert(helpers.dao.apis:insert {
+      request_host = "header-router3.com",
+      upstream_url = "http://mockbin.com"
+    })
+
     assert(helpers.dao.plugins:insert {
       name = "header-router",
       api_id = api1.id,
       config = {
-        header_name = "x-hello",
-        header_values = {"yes", "sup"},
-        upstream_url = "http://httpbin.org"
+        rules = {
+          ["1"] = {
+            header_name = "x-hello",
+            header_values = {"yes", "sup"},
+            upstream_url = "http://httpbin.org"
+          }
+        }
       }
     })
 
@@ -36,9 +44,13 @@ describe("Plugin: header-router (access)", function()
       name = "header-router",
       api_id = api2.id,
       config = {
-        header_name = "x-hello",
-        header_values = {"yes", "sup"},
-        upstream_url = "http://httpbin.org"
+        rules = {
+          ["1"] = {
+            header_name = "x-hello",
+            header_values = {"yes", "sup"},
+            upstream_url = "http://httpbin.org"
+          }
+        }
       }
     })
 
@@ -46,9 +58,32 @@ describe("Plugin: header-router (access)", function()
       name = "header-router",
       api_id = api3.id,
       config = {
-        header_name = "Accept-Language",
-        header_values = {"en", "it-IT", "en-US"},
-        upstream_url = "http://httpbin.org"
+        rules = {
+          ["1"] = {
+            header_name = "Accept-Language",
+            header_values = {"en", "it-IT", "en-US"},
+            upstream_url = "http://httpbin.org"
+          }
+        } 
+      }
+    })
+
+    assert(helpers.dao.plugins:insert {
+      name = "header-router",
+      api_id = api4.id,
+      config = {
+        rules = {
+          ["1"] = {
+            header_name = "x-hello",
+            header_values = {"yes", "sup"},
+            upstream_url = "http://httpbin.org"
+          },
+          ["2"] = {
+            header_name = "x-hello-another",
+            header_values = {"yep"},
+            upstream_url = "http://httpbin.org"
+          }
+        }
       }
     })
   end)
@@ -108,6 +143,29 @@ describe("Plugin: header-router (access)", function()
       })
       local body = cjson.decode(assert.res_status(200, res))
       assert.equal("http://header-router.com/request", body.url)
+    end)
+    it("routes when different header matche", function()
+      local res = assert(client:send {
+        method = "GET",
+        path = "/get",
+        headers = {
+          ["Host"] = "header-router3.com",
+          ["x-hello"] = "sup"
+        }
+      })
+      local body = cjson.decode(assert.res_status(200, res))
+      assert.equal("http://header-router3.com/get", body.url)
+
+      local res = assert(client:send {
+        method = "GET",
+        path = "/get",
+        headers = {
+          ["Host"] = "header-router3.com",
+          ["x-hello-another"] = "yep"
+        }
+      })
+      local body = cjson.decode(assert.res_status(200, res))
+      assert.equal("http://header-router3.com/get", body.url)
     end)
   end)
 

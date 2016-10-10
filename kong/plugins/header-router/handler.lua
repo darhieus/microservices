@@ -12,10 +12,12 @@ end
 function HeaderRouterHandler:access(conf)
   HeaderRouterHandler.super.access(self)
 
-  local header_value = ngx.req.get_headers()[conf.header_name]
-  if header_value and utils.table_contains(conf.header_values, pl_stringx.strip(header_value)) then
-    local parsed_url = url.parse(ngx.ctx.upstream_url)
-    ngx.ctx.upstream_url = conf.upstream_url..parsed_url.path
+  for _, v in pairs(conf.rules) do
+    local header_value = ngx.req.get_headers()[v.header_name]
+    if header_value and utils.table_contains(v.header_values, pl_stringx.strip(header_value)) then
+      local parsed_url = url.parse(ngx.ctx.upstream_url)
+      ngx.ctx.upstream_url = v.upstream_url..parsed_url.path
+    end
   end
 end
 
