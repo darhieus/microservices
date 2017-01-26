@@ -33,11 +33,8 @@ return {
         local _, err = cache.incr(cache_key, value)
         if err then
           ngx_log("[rate-limiting] could not increment counter for period '"..period.."': "..tostring(err))
-          return nil, err
         end
       end
-
-      return true
     end,
     usage = function(conf, api_id, identifier, current_timestamp, name)
       local periods = timestamp.get_timestamps(current_timestamp)
@@ -71,14 +68,14 @@ return {
       local ok, err = red:connect(conf.redis_host, conf.redis_port)
       if not ok then
         ngx_log(ngx.ERR, "failed to connect to Redis: ", err)
-        return nil, err
+        return
       end
 
       if conf.redis_password and conf.redis_password ~= "" then
         local ok, err = red:auth(conf.redis_password)
         if not ok then
           ngx_log(ngx.ERR, "failed to connect to Redis: ", err)
-          return nil, err
+          return
         end
       end
 
@@ -88,7 +85,7 @@ return {
         local exists, err = red:exists(cache_key)
         if err then
           ngx_log(ngx.ERR, "failed to query Redis: ", err)
-          return nil, err
+          return
         end
 
         red:init_pipeline((not exists or exists == 0) and 2 or 1)
@@ -100,17 +97,15 @@ return {
         local _, err = red:commit_pipeline()
         if err then
           ngx_log(ngx.ERR, "failed to commit pipeline in Redis: ", err)
-          return nil, err
+          return
         end
       end
 
       local ok, err = red:set_keepalive(10000, 100)
       if not ok then
         ngx_log(ngx.ERR, "failed to set Redis keepalive: ", err)
-        return nil, err
+        return
       end
-      
-      return true
     end,
     usage = function(conf, api_id, identifier, current_timestamp, name)
       local red = redis:new()
@@ -118,14 +113,14 @@ return {
       local ok, err = red:connect(conf.redis_host, conf.redis_port)
       if not ok then
         ngx_log(ngx.ERR, "failed to connect to Redis: ", err)
-        return nil, err
+        return
       end
 
       if conf.redis_password and conf.redis_password ~= "" then
         local ok, err = red:auth(conf.redis_password)
         if not ok then
           ngx_log(ngx.ERR, "failed to connect to Redis: ", err)
-          return nil, err
+          return
         end
       end
 
