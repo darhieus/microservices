@@ -1,5 +1,11 @@
 ## [Unreleased][unreleased]
 
+### Fixed
+
+- Plugins:
+  - key-auth: enforce `key_names` to be proper header names according to Nginx.
+    [#2142](https://github.com/Mashape/kong/pull/2142)
+
 ## [0.10.0] - 2016/03/07
 
 Kong 0.10 is one of most significant releases to this day. It ships with
