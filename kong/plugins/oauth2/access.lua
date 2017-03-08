@@ -88,6 +88,22 @@ local function get_redirect_uri(client_id)
   return client and client.redirect_uri or nil, client
 end
 
+local function get_req_body_args()
+  -- a few things can happen in this function.
+  -- it can throw an error, or it can return nil and a string
+  -- describing an error (such as when the size of the args
+  -- is greater client_body_buffer_size)
+  local ok, res, err = pcall(ngx.req.get_post_args)
+
+  if not ok or err then
+    local msg = res and res or err
+    ngx.log(ngx.ERR, msg)
+    return {}
+  end
+
+  return res
+end
+
 local function retrieve_parameters()
   ngx.req.read_body()
   -- OAuth2 parameters could be in both the querystring or body
@@ -99,7 +115,7 @@ local function retrieve_parameters()
     body_parameters, err = cjson.decode(ngx.req.get_body_data())
     if err then body_parameters = {} end
   else
-    body_parameters = ngx.req.get_post_args()
+    body_parameters = get_req_body_args()
   end
 
   return utils.table_merge(ngx.req.get_uri_args(), body_parameters)
@@ -424,7 +440,7 @@ local function parse_access_token(conf)
 
       if ngx.req.get_method() ~= "GET" then -- Remove from body
         ngx.req.read_body()
-        parameters = ngx.req.get_post_args()
+        parameters = get_req_body_args()
         parameters[ACCESS_TOKEN] = nil
         local encoded_args = ngx.encode_args(parameters)
         ngx.req.set_header(CONTENT_LENGTH, #encoded_args)

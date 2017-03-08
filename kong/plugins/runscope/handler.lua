@@ -13,6 +13,17 @@ local pcall = pcall
 
 local RunscopeLogHandler = BasePlugin:extend()
 
+local function get_req_body_args()
+  local ok, res = pcall(req_get_post_args)
+
+  if not ok then
+    ngx_log(ngx_log_ERR, res)
+    return {}
+  end
+
+  return res
+end
+
 function RunscopeLogHandler:new()
   RunscopeLogHandler.super.new(self, "runscope")
 end
@@ -30,16 +41,7 @@ function RunscopeLogHandler:access(conf)
     local headers = req_get_headers()
     local content_type = headers["content-type"]
     if content_type and string_find(content_type:lower(), "application/x-www-form-urlencoded", nil, true) then
-      local status, res = pcall(req_get_post_args)
-      if not status then
-        if res == "requesty body in temp file not supported" then
-          ngx_log(ngx_log_ERR, "[runscope] cannot read request body from temporary file. Try increasing the client_body_buffer_size directive.")
-        else
-          ngx_log(ngx_log_ERR, res)
-        end
-      else
-        req_post_args = res
-      end
+      req_post_args = get_req_body_args()
     end
   end
 

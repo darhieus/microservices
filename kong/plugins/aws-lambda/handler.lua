@@ -11,8 +11,8 @@ local cjson = require "cjson.safe"
 local string_find = string.find
 local ngx_req_get_headers = ngx.req.get_headers
 local ngx_req_read_body = ngx.req.read_body
-local ngx_req_get_post_args = ngx.req.get_post_args
 local ngx_req_get_uri_args = ngx.req.get_uri_args
+local ngx_req_get_post_args = ngx.req.get_post_args
 local ngx_req_get_body_data = ngx.req.get_body_data
 
 local CONTENT_TYPE = "content-type"
@@ -21,6 +21,22 @@ local AWSLambdaHandler = BasePlugin:extend()
 
 function AWSLambdaHandler:new()
   AWSLambdaHandler.super.new(self, "aws-lambda")
+end
+
+local function get_req_body_args()
+  -- a few things can happen in this function.
+  -- it can throw an error, or it can return nil and a string
+  -- describing an error (such as when the size of the args
+  -- is greater client_body_buffer_size)
+  local ok, res, err = pcall(ngx_req_get_post_args)
+
+  if not ok or err then
+    local msg = res and res or err
+    ngx.log(ngx.ERR, msg)
+    return {}
+  end
+
+  return res
 end
 
 local function retrieve_parameters()
@@ -35,7 +51,7 @@ local function retrieve_parameters()
       body_parameters = {}
     end
   else
-    body_parameters = ngx_req_get_post_args()
+    body_parameters = get_req_body_args()
   end
 
   return utils.table_merge(ngx_req_get_uri_args(), body_parameters)
