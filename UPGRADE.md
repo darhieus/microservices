@@ -1,5 +1,5 @@
 This document guides you through the process of upgrading Kong. First, check if
-a section named "Upgrade to Kong `x.x.x`" exists (`x.x.x`) being the version
+a section named "Upgrade to Kong `x.x.x`" exists, with `x.x.x` being the version
 you are planning to upgrade to. If such a section does not exist, the upgrade
 you want to perform does not have any particular instructions, and you can
 simply consult the [Suggested upgrade path](#suggested-upgrade-path).
@@ -9,11 +9,10 @@ simply consult the [Suggested upgrade path](#suggested-upgrade-path).
 Unless indicated otherwise in one of the upgrade paths of this document, it is
 possible to upgrade Kong **without downtime**:
 
-Considering that Kong is already running on your system, acquire the latest
+Assuming that Kong is already running on your system, acquire the latest
 version from any of the available [installation
-methods](https://getkong.org/install/) and proceed to installing it, overriding
-your previous installation. Once done, consider that this is a good time to
-also modify your configuration.
+methods](https://getkong.org/install/) and proceed to install it, overriding
+your previous installation. Once complete, consider that this is a good time to modify your configuration.
 
 Then, run any new migration to upgrade your database schema:
 
